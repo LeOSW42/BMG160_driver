@@ -27,17 +27,13 @@
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/i2c.h>
+#include <linux/spi/spi.h>
 #include <linux/interrupt.h>
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
 
 #include "bmg160.h"
 
@@ -51,12 +47,9 @@
 #define BMG_VAL_NAME(name) BMG160_##name
 #define BMG_CALL_API(name) bmg160_##name
 
-#define BMG_I2C_WRITE_DELAY_TIME 1
+#define BMG_SPI_WRITE_DELAY_TIME 2
 
 /* generic */
-#define BMG_MAX_RETRY_I2C_XFER (100)
-#define BMG_MAX_RETRY_WAKEUP (5)
-#define BMG_MAX_RETRY_WAIT_DRDY (100)
 
 #define BMG_DELAY_MIN (1)
 #define BMG_DELAY_DEFAULT (200)
@@ -70,28 +63,11 @@
 
 #define BMG_SOFT_RESET_VALUE                0xB6
 
-
-#ifdef BMG_USE_FIFO
 #define MAX_FIFO_F_LEVEL 100
 #define MAX_FIFO_F_BYTES 8
 #define BMG160_FIFO_DAT_SEL_X                     1
 #define BMG160_FIFO_DAT_SEL_Y                     2
 #define BMG160_FIFO_DAT_SEL_Z                     3
-#endif
-
-/*!
- * @brief:BMI058 feature
- *  macro definition
-*/
-#ifdef CONFIG_SENSORS_BMI058
-/*! BMI058 X AXIS definition*/
-#define BMI058_X_AXIS	BMG160_Y_AXIS
-/*! BMI058 Y AXIS definition*/
-#define BMI058_Y_AXIS	BMG160_X_AXIS
-
-#define C_BMI058_One_U8X	1
-#define C_BMI058_Two_U8X	2
-#endif
 
 /*! Bosch sensor unknown place*/
 #define BOSCH_SENSOR_PLACE_UNKNOWN (-1)
@@ -141,15 +117,11 @@ struct bosch_sensor_data {
 	};
 };
 
-struct bmg_client_data {
+struct bmg_device_data {
 	struct bmg160_t device;
-	struct i2c_client *client;
+	struct spi_device *spi;
 	struct input_dev *input;
 	struct delayed_work work;
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	struct early_suspend early_suspend_handler;
-#endif
 
 	atomic_t delay;
 
@@ -164,24 +136,17 @@ struct bmg_client_data {
 	struct bosch_sensor_specific *bst_pd;
 };
 
-static struct i2c_client *bmg_client;
-/* i2c operation for API */
-static void bmg_i2c_delay(BMG160_U16 msec);
-static int bmg_i2c_read(struct i2c_client *client, u8 reg_addr,
+static struct spi_device *bmg_device;
+/* spi operation for API */
+static void bmg_spi_delay(BMG160_U16 msec);
+static int bmg_spi_read(struct spi_device *spi, u8 reg_addr,
 		u8 *data, u8 len);
-static int bmg_i2c_write(struct i2c_client *client, u8 reg_addr,
+static int bmg_spi_write(struct spi_device *spi, u8 reg_addr,
 		u8 *data, u8 len);
 
-static void bmg_dump_reg(struct i2c_client *client);
-static int bmg_check_chip_id(struct i2c_client *client);
+static void bmg_dump_reg(struct spi_device *spi);
+static int bmg_check_chip_id(struct spi_device *spi);
 
-static int bmg_pre_suspend(struct i2c_client *client);
-static int bmg_post_resume(struct i2c_client *client);
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void bmg_early_suspend(struct early_suspend *handler);
-static void bmg_late_resume(struct early_suspend *handler);
-#endif
 /*!
 * BMG160 sensor remapping function
 * need to give some parameter in BSP files first.
@@ -222,28 +187,21 @@ static void bst_remap_sensor_data_dft_tab(struct bosch_sensor_data *data,
 }
 
 static void bmg160_remap_sensor_data(struct bmg160_data_t *val,
-		struct bmg_client_data *client_data)
+		struct bmg_device_data *device_data)
 {
 	struct bosch_sensor_data bsd;
 
-	if ((NULL == client_data->bst_pd) ||
+	if ((NULL == device_data->bst_pd) ||
 			(BOSCH_SENSOR_PLACE_UNKNOWN
-			 == client_data->bst_pd->place))
+			 == device_data->bst_pd->place))
 		return;
 
-#ifdef CONFIG_SENSORS_BMI058
-/*x,y need to be invesed becase of HW Register for BMI058*/
-	bsd.y = val->datax;
-	bsd.x = val->datay;
-	bsd.z = val->dataz;
-#else
 	bsd.x = val->datax;
 	bsd.y = val->datay;
 	bsd.z = val->dataz;
-#endif
 
 	bst_remap_sensor_data_dft_tab(&bsd,
-			client_data->bst_pd->place);
+			device_data->bst_pd->place);
 
 	val->datax = bsd.x;
 	val->datay = bsd.y;
@@ -251,15 +209,15 @@ static void bmg160_remap_sensor_data(struct bmg160_data_t *val,
 
 }
 
-static int bmg_check_chip_id(struct i2c_client *client)
+static int bmg_check_chip_id(struct spi_device *spi)
 {
 	int err = -1;
 	u8 chip_id = 0;
 	u8 read_count = 0;
 
 	while (read_count++ < CHECK_CHIP_ID_TIME_MAX) {
-		bmg_i2c_read(client, BMG_REG_NAME(CHIP_ID_ADDR), &chip_id, 1);
-		dev_info(&client->dev, "read chip id result: %#x", chip_id);
+		bmg_spi_read(spi, BMG_REG_NAME(CHIP_ID_ADDR), &chip_id, 1);
+		dev_info(&spi->dev, "read chip id result: %#x", chip_id);
 
 		if ((chip_id & 0xff) != SENSOR_CHIP_ID_BMG) {
 			mdelay(1);
@@ -271,12 +229,12 @@ static int bmg_check_chip_id(struct i2c_client *client)
 	return err;
 }
 
-static void bmg_i2c_delay(BMG160_U16 msec)
+static void bmg_spi_delay(BMG160_U16 msec)
 {
 	mdelay(msec);
 }
 
-static void bmg_dump_reg(struct i2c_client *client)
+static void bmg_dump_reg(struct spi_device *spi)
 {
 	int i;
 	u8 dbg_buf[64];
@@ -288,228 +246,97 @@ static void bmg_dump_reg(struct i2c_client *client)
 				dbg_buf[i],
 				(((i + 1) % BYTES_PER_LINE == 0) ? '\n' : ' '));
 	}
-	dev_dbg(&client->dev, "%s\n", dbg_buf_str);
+	dev_dbg(&spi->dev, "%s\n", dbg_buf_str);
 
-	bmg_i2c_read(client, BMG_REG_NAME(CHIP_ID_ADDR), dbg_buf, 64);
+	bmg_spi_read(spi, BMG_REG_NAME(CHIP_ID_ADDR), dbg_buf, 64);
 	for (i = 0; i < 64; i++) {
 		sprintf(dbg_buf_str + i * 3, "%02x%c",
 				dbg_buf[i],
 				(((i + 1) % BYTES_PER_LINE == 0) ? '\n' : ' '));
 	}
-	dev_dbg(&client->dev, "%s\n", dbg_buf_str);
+	dev_dbg(&spi->dev, "%s\n", dbg_buf_str);
 }
 
-/*i2c read routine for API*/
-static int bmg_i2c_read(struct i2c_client *client, u8 reg_addr,
+/*spi read routine for API*/
+static int bmg_spi_read(struct spi_device *spi, u8 reg_addr,
 		u8 *data, u8 len)
 {
-#if !defined BMG_USE_BASIC_I2C_FUNC
 	s32 dummy;
-	if (NULL == client)
+	u8 frame = 0;
+
+	frame = 0x80 | reg_addr;
+
+	dummy = spi_write_then_read(spi, &frame, sizeof(frame), data, sizeof(*data) * len);
+	if (dummy < 0)
 		return -1;
-
-	while (0 != len--) {
-#ifdef BMG_SMBUS
-		dummy = i2c_smbus_read_byte_data(client, reg_addr);
-		if (dummy < 0) {
-			dev_err(&client->dev, "i2c bus read error");
-			return -1;
-		}
-		*data = (u8)(dummy & 0xff);
-#else
-		dummy = i2c_master_send(client, (char *)&reg_addr, 1);
-		if (dummy < 0)
-			return -1;
-
-		dummy = i2c_master_recv(client, (char *)data, 1);
-		if (dummy < 0)
-			return -1;
-#endif
-		reg_addr++;
-		data++;
-	}
-	return 0;
-#else
-	int retry;
-
-	struct i2c_msg msg[] = {
-		{
-			.addr = client->addr,
-			.flags = 0,
-			.len = 1,
-			.buf = &reg_addr,
-		},
-
-		{
-			.addr = client->addr,
-			.flags = I2C_M_RD,
-			.len = len,
-			.buf = data,
-		},
-	};
-
-	for (retry = 0; retry < BMG_MAX_RETRY_I2C_XFER; retry++) {
-		if (i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg)) > 0)
-			break;
-		else
-			mdelay(BMG_I2C_WRITE_DELAY_TIME);
-	}
-
-	if (BMG_MAX_RETRY_I2C_XFER <= retry) {
-		dev_err(&client->dev, "I2C xfer error");
-		return -EIO;
-	}
-
-	return 0;
-#endif
-}
-
-#ifdef BMG_USE_FIFO
-static int bmg_i2c_burst_read(struct i2c_client *client, u8 reg_addr,
-		u8 *data, u16 len)
-{
-	int retry;
-
-	struct i2c_msg msg[] = {
-		{
-			.addr = client->addr,
-			.flags = 0,
-			.len = 1,
-			.buf = &reg_addr,
-		},
-
-		{
-			.addr = client->addr,
-			.flags = I2C_M_RD,
-			.len = len,
-			.buf = data,
-		},
-	};
-
-	for (retry = 0; retry < BMG_MAX_RETRY_I2C_XFER; retry++) {
-		if (i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg)) > 0)
-			break;
-		else
-			mdelay(BMG_I2C_WRITE_DELAY_TIME);
-	}
-
-	if (BMG_MAX_RETRY_I2C_XFER <= retry) {
-		dev_err(&client->dev, "I2C xfer error");
-		return -EIO;
-	}
-
+	udelay(2);
 	return 0;
 }
-#endif
 
-/*i2c write routine for */
-static int bmg_i2c_write(struct i2c_client *client, u8 reg_addr,
+/*spi write routine for */
+static int bmg_spi_write(struct spi_device *spi, u8 reg_addr,
 		u8 *data, u8 len)
 {
-#if !defined BMG_USE_BASIC_I2C_FUNC
 	s32 dummy;
+	u16 frame = 0;
+	u8 i;
 
-#ifndef BMG_SMBUS
-	u8 buffer[2];
-#endif
-
-	if (NULL == client)
-		return -EPERM;
-
-	while (0 != len--) {
-#ifdef BMG_SMBUS
-		dummy = i2c_smbus_write_byte_data(client, reg_addr, *data);
-#else
-		buffer[0] = reg_addr;
-		buffer[1] = *data;
-		dummy = i2c_master_send(client, (char *)buffer, 2);
-#endif
+	for(i=0 ; i<len ; i++)
+	{
+		frame = 0x7F & (((u16)reg_addr << 8) | (u16)*data);
 		reg_addr++;
-		data++;
-		if (dummy < 0) {
-			dev_err(&client->dev, "error writing i2c bus");
-			return -EPERM;
-		}
 
-	}
-	return 0;
-#else
-	u8 buffer[2];
-	int retry;
-	struct i2c_msg msg[] = {
-		{
-		 .addr = client->addr,
-		 .flags = 0,
-		 .len = 2,
-		 .buf = buffer,
-		 },
-	};
-
-	while (0 != len--) {
-		buffer[0] = reg_addr;
-		buffer[1] = *data;
-		for (retry = 0; retry < BMG_MAX_RETRY_I2C_XFER; retry++) {
-			if (i2c_transfer(client->adapter, msg,
-						ARRAY_SIZE(msg)) > 0) {
-				break;
-			} else {
-				mdelay(BMG_I2C_WRITE_DELAY_TIME);
-			}
-		}
-		if (BMG_MAX_RETRY_I2C_XFER <= retry) {
-			dev_err(&client->dev, "I2C xfer error");
-			return -EIO;
-		}
-		reg_addr++;
-		data++;
+		dummy = spi_write(spi, &frame, sizeof(frame));
+		if (dummy < 0)
+			return -1;
+		udelay(2);
 	}
 
 	return 0;
-#endif
 }
 
-static int bmg_i2c_read_wrapper(u8 dev_addr, u8 reg_addr, u8 *data, u8 len)
+static int bmg_spi_read_wrapper(u8 dev_addr, u8 reg_addr, u8 *data, u8 len)
 {
 	int err;
-	err = bmg_i2c_read(bmg_client, reg_addr, data, len);
+	err = bmg_spi_read(bmg_device, reg_addr, data, len);
 	return err;
 }
 
-static int bmg_i2c_write_wrapper(u8 dev_addr, u8 reg_addr, u8 *data, u8 len)
+static int bmg_spi_write_wrapper(u8 dev_addr, u8 reg_addr, u8 *data, u8 len)
 {
 	int err;
-	err = bmg_i2c_write(bmg_client, reg_addr, data, len);
+	err = bmg_spi_write(bmg_device, reg_addr, data, len);
 	return err;
 }
 
 
 static void bmg_work_func(struct work_struct *work)
 {
-	struct bmg_client_data *client_data =
+	struct bmg_device_data *device_data =
 		container_of((struct delayed_work *)work,
-			struct bmg_client_data, work);
+			struct bmg_device_data, work);
 
 	unsigned long delay =
-		msecs_to_jiffies(atomic_read(&client_data->delay));
+		msecs_to_jiffies(atomic_read(&device_data->delay));
 	struct bmg160_data_t gyro_data;
 
 	BMG_CALL_API(get_dataXYZ)(&gyro_data);
 	/*remapping for BMG160 sensor*/
-	bmg160_remap_sensor_data(&gyro_data, client_data);
+	bmg160_remap_sensor_data(&gyro_data, device_data);
 
-	input_report_abs(client_data->input, ABS_X, gyro_data.datax);
-	input_report_abs(client_data->input, ABS_Y, gyro_data.datay);
-	input_report_abs(client_data->input, ABS_Z, gyro_data.dataz);
-	input_sync(client_data->input);
+	input_report_abs(device_data->input, ABS_X, gyro_data.datax);
+	input_report_abs(device_data->input, ABS_Y, gyro_data.datay);
+	input_report_abs(device_data->input, ABS_Z, gyro_data.dataz);
+	input_sync(device_data->input);
 
-	schedule_delayed_work(&client_data->work, delay);
+	schedule_delayed_work(&device_data->work, delay);
 }
 
-static int bmg_set_soft_reset(struct i2c_client *client)
+static int bmg_set_soft_reset(struct spi_device *spi)
 {
 	int err = 0;
 	unsigned char data = BMG_SOFT_RESET_VALUE;
-	err = bmg_i2c_write(client, BMG160_BGW_SOFTRESET_ADDR, &data, 1);
+	err = bmg_spi_write(spi, BMG160_BGW_SOFTRESET_ADDR, &data, 1);
 	return err;
 }
 
@@ -524,12 +351,12 @@ static ssize_t bmg_show_op_mode(struct device *dev,
 {
 	int ret;
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 	u8 op_mode = 0xff;
 
-	mutex_lock(&client_data->mutex_op_mode);
+	mutex_lock(&device_data->mutex_op_mode);
 	BMG_CALL_API(get_mode)(&op_mode);
-	mutex_unlock(&client_data->mutex_op_mode);
+	mutex_unlock(&device_data->mutex_op_mode);
 
 	ret = sprintf(buf, "%d\n", op_mode);
 
@@ -542,7 +369,7 @@ static ssize_t bmg_store_op_mode(struct device *dev,
 {
 	int err;
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 
 	long op_mode;
 
@@ -550,11 +377,11 @@ static ssize_t bmg_store_op_mode(struct device *dev,
 	if (err)
 		return err;
 
-	mutex_lock(&client_data->mutex_op_mode);
+	mutex_lock(&device_data->mutex_op_mode);
 
 	err = BMG_CALL_API(set_mode)(op_mode);
 
-	mutex_unlock(&client_data->mutex_op_mode);
+	mutex_unlock(&device_data->mutex_op_mode);
 
 	if (err)
 		return err;
@@ -568,13 +395,13 @@ static ssize_t bmg_show_value(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 	int count;
 
 	struct bmg160_data_t value_data;
 	BMG_CALL_API(get_dataXYZ)(&value_data);
 	/*BMG160 sensor raw data remapping*/
-	bmg160_remap_sensor_data(&value_data, client_data);
+	bmg160_remap_sensor_data(&value_data, device_data);
 
 	count = sprintf(buf, "%hd %hd %hd\n",
 				value_data.datax,
@@ -635,12 +462,12 @@ static ssize_t bmg_show_enable(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 	int err;
 
-	mutex_lock(&client_data->mutex_enable);
-	err = sprintf(buf, "%d\n", client_data->enable);
-	mutex_unlock(&client_data->mutex_enable);
+	mutex_lock(&device_data->mutex_enable);
+	err = sprintf(buf, "%d\n", device_data->enable);
+	mutex_unlock(&device_data->mutex_enable);
 	return err;
 }
 
@@ -651,27 +478,27 @@ static ssize_t bmg_store_enable(struct device *dev,
 	unsigned long data;
 	int err;
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 
 	err = kstrtoul(buf, 10, &data);
 	if (err)
 		return err;
 
 	data = data ? 1 : 0;
-	mutex_lock(&client_data->mutex_enable);
-	if (data != client_data->enable) {
+	mutex_lock(&device_data->mutex_enable);
+	if (data != device_data->enable) {
 		if (data) {
 			schedule_delayed_work(
-					&client_data->work,
+					&device_data->work,
 					msecs_to_jiffies(atomic_read(
-							&client_data->delay)));
+							&device_data->delay)));
 		} else {
-			cancel_delayed_work_sync(&client_data->work);
+			cancel_delayed_work_sync(&device_data->work);
 		}
 
-		client_data->enable = data;
+		device_data->enable = data;
 	}
-	mutex_unlock(&client_data->mutex_enable);
+	mutex_unlock(&device_data->mutex_enable);
 
 	return count;
 }
@@ -680,9 +507,9 @@ static ssize_t bmg_show_delay(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 
-	return sprintf(buf, "%d\n", atomic_read(&client_data->delay));
+	return sprintf(buf, "%d\n", atomic_read(&device_data->delay));
 
 }
 
@@ -693,7 +520,7 @@ static ssize_t bmg_store_delay(struct device *dev,
 	unsigned long data;
 	int err;
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 
 	err = kstrtoul(buf, 10, &data);
 	if (err)
@@ -707,7 +534,7 @@ static ssize_t bmg_store_delay(struct device *dev,
 	if (data < BMG_DELAY_MIN)
 		data = BMG_DELAY_MIN;
 
-	atomic_set(&client_data->delay, data);
+	atomic_set(&device_data->delay, data);
 
 	return count;
 }
@@ -724,14 +551,8 @@ static ssize_t bmg_store_fastoffset_en(struct device *dev,
 		return err;
 	if (fastoffset_en) {
 
-#ifdef CONFIG_SENSORS_BMI058
-		BMG_CALL_API(set_fast_offset_en_ch)(BMI058_X_AXIS, 1);
-		BMG_CALL_API(set_fast_offset_en_ch)(BMI058_Y_AXIS, 1);
-#else
 		BMG_CALL_API(set_fast_offset_en_ch)(BMG160_X_AXIS, 1);
 		BMG_CALL_API(set_fast_offset_en_ch)(BMG160_Y_AXIS, 1);
-#endif
-
 		BMG_CALL_API(set_fast_offset_en_ch)(BMG160_Z_AXIS, 1);
 		BMG_CALL_API(enable_fast_offset)();
 	}
@@ -750,22 +571,12 @@ static ssize_t bmg_store_slowoffset_en(struct device *dev,
 	if (slowoffset_en) {
 		BMG_CALL_API(set_slow_offset_th)(3);
 		BMG_CALL_API(set_slow_offset_dur)(0);
-#ifdef CONFIG_SENSORS_BMI058
-		BMG_CALL_API(set_slow_offset_en_ch)(BMI058_X_AXIS, 1);
-		BMG_CALL_API(set_slow_offset_en_ch)(BMI058_Y_AXIS, 1);
-#else
 		BMG_CALL_API(set_slow_offset_en_ch)(BMG160_X_AXIS, 1);
 		BMG_CALL_API(set_slow_offset_en_ch)(BMG160_Y_AXIS, 1);
-#endif
 		BMG_CALL_API(set_slow_offset_en_ch)(BMG160_Z_AXIS, 1);
 	} else {
-#ifdef CONFIG_SENSORS_BMI058
-	BMG_CALL_API(set_slow_offset_en_ch)(BMI058_X_AXIS, 0);
-	BMG_CALL_API(set_slow_offset_en_ch)(BMI058_Y_AXIS, 0);
-#else
 	BMG_CALL_API(set_slow_offset_en_ch)(BMG160_X_AXIS, 0);
 	BMG_CALL_API(set_slow_offset_en_ch)(BMG160_Y_AXIS, 0);
-#endif
 	BMG_CALL_API(set_slow_offset_en_ch)(BMG160_Z_AXIS, 0);
 	}
 
@@ -830,39 +641,6 @@ static ssize_t bmg_store_autosleepdur(struct device *dev,
 	return count;
 }
 
-#ifdef BMG_DEBUG
-static ssize_t bmg_store_softreset(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	int err;
-	unsigned long softreset;
-	err = kstrtoul(buf, 10, &softreset);
-	if (err)
-		return err;
-	BMG_CALL_API(set_soft_reset)();
-	return count;
-}
-
-static ssize_t bmg_show_dumpreg(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	size_t count = 0;
-	u8 reg[0x40];
-	int i;
-	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
-
-	for (i = 0; i < 0x40; i++) {
-		bmg_i2c_read(client_data->client, i, reg+i, 1);
-
-		count += sprintf(&buf[count], "0x%x: 0x%x\n", i, reg[i]);
-	}
-	return count;
-}
-#endif
-
-#ifdef BMG_USE_FIFO
 static ssize_t bmg_show_fifo_mode(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -903,11 +681,11 @@ static ssize_t bmg_store_fifo_framecount(struct device *dev,
 	unsigned long data;
 	int error;
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 	error = kstrtoul(buf, 10, &data);
 	if (error)
 		return error;
-	client_data->fifo_count = (unsigned int) data;
+	device_data->fifo_count = (unsigned int) data;
 
 	return count;
 }
@@ -926,19 +704,19 @@ static ssize_t bmg_show_fifo_overrun(struct device *dev,
  * brief: bmg single axis data remaping
  * @param[i] fifo_datasel   fifo axis data select setting
  * @param[i/o] remap_dir   remapping direction
- * @param[i] client_data   to transfer sensor place
+ * @param[i] device_data   to transfer sensor place
  *
  * @return none
  */
 static void bmg_single_axis_remaping(unsigned char fifo_datasel,
-		unsigned char *remap_dir, struct bmg_client_data *client_data)
+		unsigned char *remap_dir, struct bmg_device_data *device_data)
 {
-	if ((NULL == client_data->bst_pd) ||
+	if ((NULL == device_data->bst_pd) ||
 			(BOSCH_SENSOR_PLACE_UNKNOWN
-			 == client_data->bst_pd->place))
+			 == device_data->bst_pd->place))
 		return;
 	else {
-		signed char place = client_data->bst_pd->place;
+		signed char place = device_data->bst_pd->place;
 		/* sensor with place 0 needs not to be remapped */
 		if ((place <= 0) ||
 			(place >= MAX_AXIS_REMAP_TAB_SZ))
@@ -985,28 +763,28 @@ static ssize_t bmg_show_fifo_data_frame(struct device *dev,
 	signed char fifo_data_out[MAX_FIFO_F_LEVEL * MAX_FIFO_F_BYTES] = {0};
 	unsigned char f_len = 0;
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 	struct bmg160_data_t gyro_lsb;
 	unsigned char axis_dir_remap = 0;
 	s16 value;
 
-	if (client_data->fifo_count == 0)
+	if (device_data->fifo_count == 0)
 		return -ENOENT;
 
-	if (client_data->fifo_datasel)
+	if (device_data->fifo_datasel)
 		/*Select one axis data output for every fifo frame*/
 		f_len = 2;
 	else
 		/*Select X Y Z axis data output for every fifo frame*/
 		f_len = 6;
 
-	bmg_i2c_burst_read(client_data->client, BMG160_FIFO_DATA_ADDR,
-			fifo_data_out, client_data->fifo_count * f_len);
+	bmg_spi_read(device_data->spi, BMG160_FIFO_DATA_ADDR,
+			fifo_data_out, device_data->fifo_count * f_len);
 	err = 0;
 
 	if (f_len == 6) {
 		/* Select X Y Z axis data output for every frame */
-		for (i = 0; i < client_data->fifo_count; i++) {
+		for (i = 0; i < device_data->fifo_count; i++) {
 			gyro_lsb.datax =
 			((unsigned char)fifo_data_out[i * f_len + 1] << 8
 				| (unsigned char)fifo_data_out[i * f_len + 0]);
@@ -1019,7 +797,7 @@ static ssize_t bmg_show_fifo_data_frame(struct device *dev,
 			((unsigned char)fifo_data_out[i * f_len + 5] << 8
 				| (unsigned char)fifo_data_out[i * f_len + 4]);
 
-			bmg160_remap_sensor_data(&gyro_lsb, client_data);
+			bmg160_remap_sensor_data(&gyro_lsb, device_data);
 			len = sprintf(buf, "%d %d %d ",
 				gyro_lsb.datax, gyro_lsb.datay, gyro_lsb.dataz);
 			buf += len;
@@ -1027,9 +805,9 @@ static ssize_t bmg_show_fifo_data_frame(struct device *dev,
 		}
 	} else {
 		/* single axis data output for every frame */
-		bmg_single_axis_remaping(client_data->fifo_datasel,
-				&axis_dir_remap, client_data);
-		for (i = 0; i < client_data->fifo_count * f_len / 2; i++) {
+		bmg_single_axis_remaping(device_data->fifo_datasel,
+				&axis_dir_remap, device_data);
+		for (i = 0; i < device_data->fifo_count * f_len / 2; i++) {
 			value = ((unsigned char)fifo_data_out[2 * i + 1] << 8 |
 					(unsigned char)fifo_data_out[2 * i]);
 			if (axis_dir_remap)
@@ -1055,16 +833,16 @@ static ssize_t bmg_show_fifo_data_sel(struct device *dev,
 {
 	int err;
 	unsigned char fifo_data_sel;
-	struct i2c_client *client = to_i2c_client(dev);
-	struct bmg_client_data *client_data = i2c_get_clientdata(client);
+	struct spi_device *spi = to_spi_device(dev);
+	struct bmg_device_data *device_data = spi_get_drvdata(spi);
 	signed char place = BOSCH_SENSOR_PLACE_UNKNOWN;
 
 	BMG_CALL_API(get_fifo_data_sel)(&fifo_data_sel);
 
 	/*remapping fifo_dat_sel if define virtual place in BSP files*/
-	if ((NULL != client_data->bst_pd) &&
-		(BOSCH_SENSOR_PLACE_UNKNOWN != client_data->bst_pd->place)) {
-		place = client_data->bst_pd->place;
+	if ((NULL != device_data->bst_pd) &&
+		(BOSCH_SENSOR_PLACE_UNKNOWN != device_data->bst_pd->place)) {
+		place = device_data->bst_pd->place;
 		/* sensor with place 0 needs not to be remapped */
 		if ((place > 0) && (place < MAX_AXIS_REMAP_TAB_SZ)) {
 			if (BMG160_FIFO_DAT_SEL_X == fifo_data_sel)
@@ -1101,7 +879,7 @@ static ssize_t bmg_store_fifo_data_sel(struct device *dev,
 	unsigned long fifo_data_sel;
 
 	struct input_dev *input = to_input_dev(dev);
-	struct bmg_client_data *client_data = input_get_drvdata(input);
+	struct bmg_device_data *device_data = input_get_drvdata(input);
 	signed char place;
 
 	err = kstrtoul(buf, 10, &fifo_data_sel);
@@ -1109,12 +887,12 @@ static ssize_t bmg_store_fifo_data_sel(struct device *dev,
 		return err;
 
 	/*save fifo_data_sel(android axis definition)*/
-	client_data->fifo_datasel = (unsigned char) fifo_data_sel;
+	device_data->fifo_datasel = (unsigned char) fifo_data_sel;
 
 	/*remaping fifo_dat_sel if define virtual place*/
-	if ((NULL != client_data->bst_pd) &&
-		(BOSCH_SENSOR_PLACE_UNKNOWN != client_data->bst_pd->place)) {
-		place = client_data->bst_pd->place;
+	if ((NULL != device_data->bst_pd) &&
+		(BOSCH_SENSOR_PLACE_UNKNOWN != device_data->bst_pd->place)) {
+		place = device_data->bst_pd->place;
 		/* sensor with place 0 needs not to be remapped */
 		if ((place > 0) && (place < MAX_AXIS_REMAP_TAB_SZ)) {
 			/*Need X Y axis revesal sensor place: P1, P3, P5, P7 */
@@ -1160,7 +938,6 @@ static ssize_t bmg_store_fifo_tag(struct device *dev,
 	BMG_CALL_API(set_fifo_tag)(fifo_tag);
 	return count;
 }
-#endif
 
 static DEVICE_ATTR(chip_id, S_IRUGO,
 		bmg_show_chip_id, NULL);
@@ -1186,13 +963,6 @@ static DEVICE_ATTR(sleepdur, S_IRUGO|S_IWUSR,
 		bmg_show_sleepdur, bmg_store_sleepdur);
 static DEVICE_ATTR(autosleepdur, S_IRUGO|S_IWUSR,
 		bmg_show_autosleepdur, bmg_store_autosleepdur);
-#ifdef BMG_DEBUG
-static DEVICE_ATTR(softreset, S_IRUGO|S_IWUSR,
-		NULL, bmg_store_softreset);
-static DEVICE_ATTR(regdump, S_IRUGO,
-		bmg_show_dumpreg, NULL);
-#endif
-#ifdef BMG_USE_FIFO
 static DEVICE_ATTR(fifo_mode, S_IRUGO|S_IWUSR,
 		bmg_show_fifo_mode, bmg_store_fifo_mode);
 static DEVICE_ATTR(fifo_framecount, S_IRUGO|S_IWUSR,
@@ -1205,7 +975,6 @@ static DEVICE_ATTR(fifo_data_sel, S_IRUGO|S_IWUSR,
 		bmg_show_fifo_data_sel, bmg_store_fifo_data_sel);
 static DEVICE_ATTR(fifo_tag, S_IRUGO|S_IWUSR,
 		bmg_show_fifo_tag, bmg_store_fifo_tag);
-#endif
 
 static struct attribute *bmg_attributes[] = {
 	&dev_attr_chip_id.attr,
@@ -1220,18 +989,12 @@ static struct attribute *bmg_attributes[] = {
 	&dev_attr_selftest.attr,
 	&dev_attr_sleepdur.attr,
 	&dev_attr_autosleepdur.attr,
-#ifdef BMG_DEBUG
-	&dev_attr_softreset.attr,
-	&dev_attr_regdump.attr,
-#endif
-#ifdef BMG_USE_FIFO
 	&dev_attr_fifo_mode.attr,
 	&dev_attr_fifo_framecount.attr,
 	&dev_attr_fifo_overrun.attr,
 	&dev_attr_fifo_data_frame.attr,
 	&dev_attr_fifo_data_sel.attr,
 	&dev_attr_fifo_tag.attr,
-#endif
 	NULL
 };
 
@@ -1240,7 +1003,7 @@ static struct attribute_group bmg_attribute_group = {
 };
 
 
-static int bmg_input_init(struct bmg_client_data *client_data)
+static int bmg_input_init(struct bmg_device_data *device_data)
 {
 	struct input_dev *dev;
 	int err = 0;
@@ -1250,132 +1013,116 @@ static int bmg_input_init(struct bmg_client_data *client_data)
 		return -ENOMEM;
 
 	dev->name = SENSOR_NAME;
-	dev->id.bustype = BUS_I2C;
+	dev->id.bustype = BUS_SPI;
 
 	input_set_capability(dev, EV_ABS, ABS_MISC);
 	input_set_abs_params(dev, ABS_X, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, ABS_Y, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, ABS_Z, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
-	input_set_drvdata(dev, client_data);
+	input_set_drvdata(dev, device_data);
 
 	err = input_register_device(dev);
 	if (err < 0) {
 		input_free_device(dev);
 		return err;
 	}
-	client_data->input = dev;
+	device_data->input = dev;
 
 	return 0;
 }
 
-static void bmg_input_destroy(struct bmg_client_data *client_data)
+static void bmg_input_destroy(struct bmg_device_data *device_data)
 {
-	struct input_dev *dev = client_data->input;
+	struct input_dev *dev = device_data->input;
 
 	input_unregister_device(dev);
 	input_free_device(dev);
 }
 
-static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int bmg_probe(struct spi_device *spi)
 {
 	int err = 0;
-	struct bmg_client_data *client_data = NULL;
+	struct bmg_device_data *device_data = NULL;
 
-	dev_info(&client->dev, "function entrance");
+	dev_info(&spi->dev, "function entrance");
 
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		dev_err(&client->dev, "i2c_check_functionality error!");
-		err = -EIO;
-		goto exit_err_clean;
-	}
-
-	if (NULL == bmg_client) {
-		bmg_client = client;
-	} else {
-		dev_err(&client->dev,
-			"this driver does not support multiple clients");
-		err = -EINVAL;
+	device_data = kzalloc(sizeof(struct bmg_device_data), GFP_KERNEL);
+	if (!device_data) {
+		dev_err(&spi->dev, "no memory available");
+		err = -ENOMEM;
 		goto exit_err_clean;
 	}
 
 	/* do soft reset */
 	mdelay(5);
 
-	err = bmg_set_soft_reset(client);
-
+	err = bmg_set_soft_reset(spi);
 	if (err < 0) {
-		dev_err(&client->dev,
-			"erro soft reset!\n");
+		dev_err(&spi->dev, "erro soft reset!\n");
 		err = -EINVAL;
 		goto exit_err_clean;
 	}
-	mdelay(30);
+	mdelay(5);
 
 	/* check chip id */
-	err = bmg_check_chip_id(client);
+	err = bmg_check_chip_id(spi);
 	if (!err) {
-		dev_notice(&client->dev,
+		dev_notice(&spi->dev,
 			"Bosch Sensortec Device %s detected", SENSOR_NAME);
 	} else {
-		dev_err(&client->dev,
+		dev_err(&spi->dev,
 			"Bosch Sensortec Device not found, chip id mismatch");
 		err = -1;
 		goto exit_err_clean;
 	}
 
-	client_data = kzalloc(sizeof(struct bmg_client_data), GFP_KERNEL);
-	if (NULL == client_data) {
-		dev_err(&client->dev, "no memory available");
-		err = -ENOMEM;
-		goto exit_err_clean;
-	}
 
-	i2c_set_clientdata(client, client_data);
-	client_data->client = client;
+	spi_set_drvdata(spi, device_data);
+	device_data->spi = spi;
 
-	mutex_init(&client_data->mutex_op_mode);
-	mutex_init(&client_data->mutex_enable);
+	mutex_init(&device_data->mutex_op_mode);
+	mutex_init(&device_data->mutex_enable);
 
 	/* input device init */
-	err = bmg_input_init(client_data);
+	err = bmg_input_init(device_data);
 	if (err < 0)
 		goto exit_err_clean;
 
 	/* sysfs node creation */
-	err = sysfs_create_group(&client_data->input->dev.kobj,
+	err = sysfs_create_group(&device_data->input->dev.kobj,
 			&bmg_attribute_group);
 
 	if (err < 0)
 		goto exit_err_sysfs;
 
-	if (NULL != client->dev.platform_data) {
-		client_data->bst_pd = kzalloc(sizeof(*client_data->bst_pd),
+	if (NULL != spi->dev.platform_data) {
+		device_data->bst_pd = kzalloc(sizeof(*device_data->bst_pd),
 				GFP_KERNEL);
 
-		if (NULL != client_data->bst_pd) {
-			memcpy(client_data->bst_pd, client->dev.platform_data,
-					sizeof(*client_data->bst_pd));
-			dev_notice(&client->dev, "%s sensor driver set place: p%d",
+		if (NULL != device_data->bst_pd) {
+			memcpy(device_data->bst_pd, spi->dev.platform_data,
+					sizeof(*device_data->bst_pd));
+			dev_notice(&spi->dev, "%s sensor driver set place: p%d",
 					SENSOR_NAME,
-					client_data->bst_pd->place);
+					device_data->bst_pd->place);
 		}
 	}
 
 	/* workqueue init */
-	INIT_DELAYED_WORK(&client_data->work, bmg_work_func);
-	atomic_set(&client_data->delay, BMG_DELAY_DEFAULT);
+	INIT_DELAYED_WORK(&device_data->work, bmg_work_func);
+	atomic_set(&device_data->delay, BMG_DELAY_DEFAULT);
 
 	/* h/w init */
-	client_data->device.bus_read = bmg_i2c_read_wrapper;
-	client_data->device.bus_write = bmg_i2c_write_wrapper;
-	client_data->device.delay_msec = bmg_i2c_delay;
-	BMG_CALL_API(init)(&client_data->device);
+	device_data->device.bus_read = bmg_spi_read_wrapper;
+	device_data->device.bus_write = bmg_spi_write_wrapper;
+	device_data->device.delay_msec = bmg_spi_delay;
+	BMG_CALL_API(init)(&device_data->device);
 
-	bmg_dump_reg(client);
+	bmg_dump_reg(spi);
 
-	client_data->enable = 0;
-	client_data->fifo_datasel = 0;
-	client_data->fifo_count = 0;
+	device_data->enable = 0;
+	device_data->fifo_datasel = 0;
+	device_data->fifo_count = 0;
 
 	/* now it's power on which is considered as resuming from suspend */
 	err = BMG_CALL_API(set_mode)(
@@ -1384,232 +1131,100 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (err < 0)
 		goto exit_err_sysfs;
 
+	dev_notice(&spi->dev, "sensor %s probed successfully", SENSOR_NAME);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	client_data->early_suspend_handler.suspend = bmg_early_suspend;
-	client_data->early_suspend_handler.resume = bmg_late_resume;
-	register_early_suspend(&client_data->early_suspend_handler);
-#endif
-
-	dev_notice(&client->dev, "sensor %s probed successfully", SENSOR_NAME);
-
-	dev_dbg(&client->dev,
-		"i2c_client: %p client_data: %p i2c_device: %p input: %p",
-		client, client_data, &client->dev, client_data->input);
+	dev_dbg(&spi->dev,
+		"spi_device: %p device_data: %p spi_device: %p input: %p",
+		spi, device_data, &spi->dev, device_data->input);
 
 	return 0;
 
 exit_err_sysfs:
 	if (err)
-		bmg_input_destroy(client_data);
+		bmg_input_destroy(device_data);
 
 exit_err_clean:
 	if (err) {
-		if (client_data != NULL) {
-			kfree(client_data);
-			client_data = NULL;
+		if (device_data != NULL) {
+			kfree(device_data);
+			device_data = NULL;
 		}
 
-		bmg_client = NULL;
+		bmg_device = NULL;
 	}
 
 	return err;
 }
 
-static int bmg_pre_suspend(struct i2c_client *client)
+void bmg_shutdown(struct spi_device *spi)
 {
-	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)i2c_get_clientdata(client);
-	dev_info(&client->dev, "function entrance");
+	struct bmg_device_data *device_data =
+		(struct bmg_device_data *)spi_get_drvdata(spi);
 
-	mutex_lock(&client_data->mutex_enable);
-	if (client_data->enable) {
-		cancel_delayed_work_sync(&client_data->work);
-		dev_info(&client->dev, "cancel work");
-	}
-	mutex_unlock(&client_data->mutex_enable);
-
-	return err;
-}
-
-static int bmg_post_resume(struct i2c_client *client)
-{
-	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)i2c_get_clientdata(client);
-
-	dev_info(&client->dev, "function entrance");
-	mutex_lock(&client_data->mutex_enable);
-	if (client_data->enable) {
-		schedule_delayed_work(&client_data->work,
-				msecs_to_jiffies(
-					atomic_read(&client_data->delay)));
-	}
-	mutex_unlock(&client_data->mutex_enable);
-
-	return err;
-}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void bmg_early_suspend(struct early_suspend *handler)
-{
-	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)container_of(handler,
-			struct bmg_client_data, early_suspend_handler);
-	struct i2c_client *client = client_data->client;
-
-	dev_info(&client->dev, "function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-	if (client_data->enable) {
-		err = bmg_pre_suspend(client);
-		err = BMG_CALL_API(set_mode)(
-				BMG_VAL_NAME(MODE_SUSPEND));
-	}
-	mutex_unlock(&client_data->mutex_op_mode);
-}
-
-static void bmg_late_resume(struct early_suspend *handler)
-{
-
-	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)container_of(handler,
-			struct bmg_client_data, early_suspend_handler);
-	struct i2c_client *client = client_data->client;
-
-	dev_info(&client->dev, "function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-
-	if (client_data->enable)
-		err = BMG_CALL_API(set_mode)(BMG_VAL_NAME(MODE_NORMAL));
-
-	/* post resume operation */
-	bmg_post_resume(client);
-
-	mutex_unlock(&client_data->mutex_op_mode);
-}
-#else
-static int bmg_suspend(struct i2c_client *client, pm_message_t mesg)
-{
-	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)i2c_get_clientdata(client);
-
-	dev_info(&client->dev, "function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-	if (client_data->enable) {
-		err = bmg_pre_suspend(client);
-		err = BMG_CALL_API(set_mode)(
-				BMG_VAL_NAME(MODE_SUSPEND));
-	}
-	mutex_unlock(&client_data->mutex_op_mode);
-	return err;
-}
-
-static int bmg_resume(struct i2c_client *client)
-{
-
-	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)i2c_get_clientdata(client);
-
-	dev_info(&client->dev, "function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-
-	if (client_data->enable)
-		err = BMG_CALL_API(set_mode)(BMG_VAL_NAME(MODE_NORMAL));
-
-	/* post resume operation */
-	bmg_post_resume(client);
-
-	mutex_unlock(&client_data->mutex_op_mode);
-	return err;
-}
-#endif
-
-void bmg_shutdown(struct i2c_client *client)
-{
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)i2c_get_clientdata(client);
-
-	mutex_lock(&client_data->mutex_op_mode);
+	mutex_lock(&device_data->mutex_op_mode);
 	BMG_CALL_API(set_mode)(
 		BMG_VAL_NAME(MODE_DEEPSUSPEND));
-	mutex_unlock(&client_data->mutex_op_mode);
+	mutex_unlock(&device_data->mutex_op_mode);
 }
 
-static int bmg_remove(struct i2c_client *client)
+static int bmg_remove(struct spi_device *spi)
 {
 	int err = 0;
 	u8 op_mode;
 
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)i2c_get_clientdata(client);
+	struct bmg_device_data *device_data =
+		(struct bmg_device_data *)spi_get_drvdata(spi);
 
-	if (NULL != client_data) {
-#ifdef CONFIG_HAS_EARLYSUSPEND
-		unregister_early_suspend(&client_data->early_suspend_handler);
-#endif
-		mutex_lock(&client_data->mutex_op_mode);
+	if (NULL != device_data) {
+		mutex_lock(&device_data->mutex_op_mode);
 		BMG_CALL_API(get_mode)(&op_mode);
 		if (BMG_VAL_NAME(MODE_NORMAL) == op_mode) {
-			cancel_delayed_work_sync(&client_data->work);
-			dev_info(&client->dev, "cancel work");
+			cancel_delayed_work_sync(&device_data->work);
+			dev_info(&spi->dev, "cancel work");
 		}
-		mutex_unlock(&client_data->mutex_op_mode);
+		mutex_unlock(&device_data->mutex_op_mode);
 
 		err = BMG_CALL_API(set_mode)(
 				BMG_VAL_NAME(MODE_SUSPEND));
-		mdelay(BMG_I2C_WRITE_DELAY_TIME);
+		mdelay(BMG_SPI_WRITE_DELAY_TIME);
 
-		sysfs_remove_group(&client_data->input->dev.kobj,
+		sysfs_remove_group(&device_data->input->dev.kobj,
 				&bmg_attribute_group);
-		bmg_input_destroy(client_data);
-		kfree(client_data);
+		bmg_input_destroy(device_data);
+		kfree(device_data);
 
-		bmg_client = NULL;
+		bmg_device = NULL;
 	}
 
 	return err;
 }
 
-static const struct i2c_device_id bmg_id[] = {
+static const struct spi_device_id bmg_id[] = {
 	{ SENSOR_NAME, 0 },
 	{ }
 };
 
-MODULE_DEVICE_TABLE(i2c, bmg_id);
+MODULE_DEVICE_TABLE(spi, bmg_id);
 
-static struct i2c_driver bmg_driver = {
+static struct spi_driver bmg_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = SENSOR_NAME,
 	},
-	.class = I2C_CLASS_HWMON,
 	.id_table = bmg_id,
 	.probe = bmg_probe,
 	.remove = bmg_remove,
 	.shutdown = bmg_shutdown,
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	.suspend = bmg_suspend,
-	.resume = bmg_resume,
-#endif
 };
 
 static int __init BMG_init(void)
 {
-	return i2c_add_driver(&bmg_driver);
+	return spi_register_driver(&bmg_driver);
 }
 
 static void __exit BMG_exit(void)
 {
-	i2c_del_driver(&bmg_driver);
+	spi_unregister_driver(&bmg_driver);
 }
 
 MODULE_AUTHOR("contact@bosch-sensortec.com>");

@@ -1,7 +1,13 @@
-#
-# Makefile for Bosch sensor driver.
-#
-obj-$(CONFIG_SENSORS_BMG)    += bmg160_driver.o bmg160.o
-ifeq ($(CONFIG_SENSORS_BMG_FIFO),y)
-	EXTRA_CFLAGS += -DBMG_USE_FIFO -DBMG_USE_BASIC_I2C_FUNC
-endif
+obj-m += bmg160_driver.o
+obj-m += bmg160.o
+
+KERNEL_SRC = /dev/null
+
+all:
+	make -C $(KERNEL_SRC) M=$(PWD) modules
+
+modules_install:
+	make -C $(KERNEL_SRC) M=$(PWD) modules_install
+
+clean:
+	make -C $(KERNEL_SRC) M=$(PWD) clean
