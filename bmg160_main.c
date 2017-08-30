@@ -13,7 +13,6 @@
  *
  * @brief    BMG160API
 */
-#include <linux/module.h>
 
 #include "bmg160.h"
 static struct bmg160_t *p_bmg160;
@@ -69,7 +68,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_init(struct bmg160_t *bmg160)
 	p_bmg160->chip_id = a_data_u8r;
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_init);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -117,7 +115,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_dataX(BMG160_S16 *data_x)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_dataX);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -165,7 +162,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_dataY(BMG160_S16 *data_y)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_dataY);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -213,7 +209,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_dataZ(BMG160_S16 *data_z)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_dataZ);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -273,7 +268,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_dataXYZ(struct bmg160_data_t *data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_dataXYZ);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -339,7 +333,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_dataXYZI(struct bmg160_data_t *data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_dataXYZI);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -382,7 +375,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_Temperature(unsigned char *temperature)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_Temperature);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -425,7 +417,6 @@ unsigned char *data, unsigned char len)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_read_register);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -468,7 +459,6 @@ unsigned char *data, BMG160_S32 len)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_burst_read);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -511,7 +501,6 @@ unsigned char *data, unsigned char len)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_write_register);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -558,7 +547,6 @@ unsigned char *status0_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_interrupt_status_reg_0);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -605,7 +593,6 @@ unsigned char *status1_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_interrupt_status_reg_1);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -652,7 +639,6 @@ unsigned char *status2_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_interrupt_status_reg_2);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -699,7 +685,6 @@ unsigned char *status3_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_interrupt_status_reg_3);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -753,7 +738,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_range_reg(unsigned char *range)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_range_reg);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -815,7 +799,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_range_reg(unsigned char range)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_range_reg);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -862,7 +845,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_high_res(unsigned char *high_res)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_high_res);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -917,7 +899,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_bw(unsigned char *bandwidth)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_bw);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -989,7 +970,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_bw(unsigned char bandwidth)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_bw);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1041,7 +1021,6 @@ unsigned char *pwu_ext_tri_sel)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_pmu_ext_tri_sel);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1090,7 +1069,6 @@ unsigned char pwu_ext_tri_sel)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_pmu_ext_tri_sel);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1135,7 +1113,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_high_bw(unsigned char *high_bw)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_high_bw);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1190,7 +1167,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_high_bw(unsigned char high_bw)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_high_bw);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1235,7 +1211,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_shadow_dis(unsigned char *shadow_dis)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_shadow_dis);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1289,7 +1264,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_shadow_dis(unsigned char shadow_dis)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_shadow_dis);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1333,7 +1307,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_soft_reset()
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_soft_reset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1378,7 +1351,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_data_enable(unsigned char *data_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_data_enable);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1429,7 +1401,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_data_en(unsigned char data_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_data_en);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1475,7 +1446,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_fifo_enable(unsigned char *fifo_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_enable);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1530,7 +1500,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_fifo_enable(unsigned char fifo_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_fifo_enable);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1578,7 +1547,6 @@ unsigned char *offset_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_auto_offset_en);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1625,7 +1593,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_auto_offset_en(unsigned char offset_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_auto_offset_en);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1690,7 +1657,6 @@ unsigned char *int_od)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int_od);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1760,7 +1726,6 @@ unsigned char int_od)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int_od);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1824,7 +1789,6 @@ unsigned char *int_lvl)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int_lvl);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1894,7 +1858,6 @@ unsigned char int_lvl)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int_lvl);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1940,7 +1903,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_int1_high(unsigned char *int1_high)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int1_high);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -1986,7 +1948,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_int1_high(unsigned char int1_high)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int1_high);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2031,7 +1992,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_int1_any(unsigned char *int1_any)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int1_any);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2077,7 +2037,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_int1_any(unsigned char int1_any)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int1_any);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2143,7 +2102,6 @@ unsigned char *int_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int_data);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2217,7 +2175,6 @@ unsigned char int_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int_data);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2284,7 +2241,6 @@ unsigned char *int2_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int2_offset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2357,7 +2313,6 @@ unsigned char int2_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int2_offset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2424,7 +2379,6 @@ unsigned char *int1_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int1_offset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2497,7 +2451,6 @@ unsigned char int1_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int1_offset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2542,7 +2495,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_int_fifo(unsigned char *int_fifo)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int_fifo);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2588,7 +2540,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_int2_fifo(unsigned char *int_fifo)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int2_fifo);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2635,7 +2586,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_int1_fifo(unsigned char *int_fifo)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int1_fifo);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2701,7 +2651,6 @@ unsigned char int_fifo)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int_fifo);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2756,7 +2705,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_int1_fifo(unsigned char fifo_int1)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int1_fifo);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2811,7 +2759,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_int2_fifo(unsigned char fifo_int2)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int2_fifo);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2856,7 +2803,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_int2_high(unsigned char *int2_high)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int2_high);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2904,7 +2850,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_int2_high(unsigned char int2_high)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int2_high);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2949,7 +2894,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_int2_any(unsigned char *int2_any)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_int2_any);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -2998,7 +2942,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_int2_any(unsigned char int2_any)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_int2_any);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3065,7 +3008,6 @@ unsigned char *offset_unfilt)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_offset_unfilt);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3141,7 +3083,6 @@ unsigned char offset_unfilt)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_offset_unfilt);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3210,7 +3151,6 @@ unsigned char *unfilt_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_unfilt_data);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3286,7 +3226,6 @@ unsigned char unfilt_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_unfilt_data);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3331,7 +3270,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_any_th(unsigned char *any_th)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_any_th);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3378,7 +3316,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_any_th(unsigned char any_th)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_any_th);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3423,7 +3360,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_awake_dur(unsigned char *awake_dur)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_awake_dur);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3470,7 +3406,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_awake_dur(unsigned char awake_dur)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_awake_dur);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3515,7 +3450,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_any_dursample(unsigned char *dursample)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_any_dursample);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3562,7 +3496,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_any_dursample(unsigned char dursample)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_any_dursample);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3635,7 +3568,6 @@ unsigned char *data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_any_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3719,7 +3651,6 @@ unsigned char data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_any_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3766,7 +3697,6 @@ unsigned char *fifo_wn_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_watermark_enable);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3821,7 +3751,6 @@ unsigned char fifo_wn_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_fifo_watermark_enable);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3868,7 +3797,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_reset_int(unsigned char reset_int)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_reset_int);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3916,7 +3844,6 @@ unsigned char offset_reset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_offset_reset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -3962,7 +3889,6 @@ unsigned char *latch_status)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_latch_status);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4010,7 +3936,6 @@ unsigned char latch_status)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_latch_status);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4055,7 +3980,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_latch_int(unsigned char *latch_int)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_latch_int);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4102,7 +4026,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_latch_int(unsigned char latch_int)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_latch_int);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4178,7 +4101,6 @@ unsigned char *high_hy)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_high_hy);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4264,7 +4186,6 @@ unsigned char high_hy)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_high_hy);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4341,7 +4262,6 @@ unsigned char *high_th)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_high_th);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4427,7 +4347,6 @@ unsigned char high_th)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_high_th);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4504,7 +4423,6 @@ unsigned char *high_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_high_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4590,7 +4508,6 @@ unsigned char high_en)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_high_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4660,7 +4577,6 @@ unsigned char *high_dur)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_high_dur_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4731,7 +4647,6 @@ unsigned char high_dur)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_high_dur_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4778,7 +4693,6 @@ unsigned char *offset_th)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_slow_offset_th);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4825,7 +4739,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_slow_offset_th(unsigned char offset_th)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_slow_offset_th);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4871,7 +4784,6 @@ unsigned char *offset_dur)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_slow_offset_dur);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4919,7 +4831,6 @@ unsigned char offset_dur)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_slow_offset_dur);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -4996,7 +4907,6 @@ unsigned char channel, unsigned char *slow_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_slow_offset_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5083,7 +4993,6 @@ unsigned char channel, unsigned char slow_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_slow_offset_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5148,7 +5057,6 @@ unsigned char *offset_wl)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_offset_wl);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5219,7 +5127,6 @@ unsigned char channel, unsigned char offset_wl)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_offset_wl);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5266,7 +5173,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_enable_fast_offset()
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_enable_fast_offset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5314,7 +5220,6 @@ unsigned char *fast_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fast_offset_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5395,7 +5300,6 @@ unsigned char channel, unsigned char fast_offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_fast_offset_en_ch);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5442,7 +5346,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_nvm_remain(unsigned char *nvm_remain)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_nvm_remain);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5493,7 +5396,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_nvm_load(unsigned char nvm_load)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_nvm_load);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5542,7 +5444,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_nvm_rdy(unsigned char *nvm_rdy)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_nvm_rdy);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5592,7 +5493,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_nvm_prog_trig(unsigned char prog_trig)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_nvm_prog_trig);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5640,7 +5540,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_nvm_prog_mode(unsigned char *prog_mode)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_nvm_prog_mode);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5690,7 +5589,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_nvm_prog_mode(unsigned char prog_mode)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_nvm_prog_mode);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5756,7 +5654,6 @@ unsigned char *prog_mode)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_i2c_wdt);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5829,7 +5726,6 @@ unsigned char prog_mode)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_i2c_wdt);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5875,7 +5771,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_spi3(unsigned char *spi3)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_spi3);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -5924,7 +5819,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_spi3(unsigned char spi3)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_spi3);
 /* Scheduling:
  *
  *
@@ -5949,7 +5843,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_fifo_tag(unsigned char *tag)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_tag);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6005,7 +5898,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_fifo_tag(unsigned char tag)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_fifo_tag);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6051,7 +5943,6 @@ unsigned char *water_mark_level)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_watermarklevel);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6106,7 +5997,6 @@ unsigned char water_mark_level)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_fifo_watermarklevel);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6220,7 +6110,6 @@ BMG160_S16 *offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_offset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6338,7 +6227,6 @@ unsigned char axis, BMG160_S16 offset)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_offset);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6405,7 +6293,6 @@ unsigned char *value)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_gp);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6472,7 +6359,6 @@ unsigned char value)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_gp);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6517,7 +6403,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_FIFO_data_reg(unsigned char *fifo_data)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_FIFO_data_reg);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6560,7 +6445,6 @@ unsigned char *fifo_status)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifostatus_reg);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6606,7 +6490,6 @@ unsigned char *fifo_framecount)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_framecount);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6652,7 +6535,6 @@ unsigned char *fifo_overrun)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_overrun);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6701,7 +6583,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_fifo_mode(unsigned char *mode)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_mode);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6753,7 +6634,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_fifo_mode(unsigned char mode)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_fifo_mode);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6805,7 +6685,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_fifo_data_sel(unsigned char *data_sel)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_fifo_data_sel);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6865,7 +6744,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_fifo_data_sel(unsigned char data_sel)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_fifo_data_sel);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -6940,7 +6818,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_mode(unsigned char *mode)
 		}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_mode);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -7100,7 +6977,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_mode(unsigned char mode)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_mode);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -7159,7 +7035,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_selftest(unsigned char *result)
 		*result = C_BMG160_FAILURE;
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_selftest);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -7204,7 +7079,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_autosleepdur(unsigned char *duration)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_autosleepdur);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -7345,7 +7219,6 @@ unsigned char bandwith)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_autosleepdur);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -7390,7 +7263,6 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_get_sleepdur(unsigned char *duration)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_get_sleepdur);
 /* Compiler Switch if applicable
 #ifdef
 
@@ -7445,4 +7317,3 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_sleepdur(unsigned char duration)
 	}
 	return comres;
 }
-EXPORT_SYMBOL(bmg160_set_sleepdur);
